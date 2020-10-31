@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  timescale:
+    image: timescale/timescaledb:1.7.4-pg12
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  tsdbperf:
+    image: vincev/tsdbperf:v0.1.0
+    entrypoint:
+      - /app/tsdbperf
+      - --db-host
+      - timescale
+      - --workers
+      - '8'
+      - --devices
+      - '10'
+      - --metrics
+      - '10'
+      - --measurements
+      - '100000'

@@ -82,7 +82,7 @@ postgres@localhost> \d measurement
 | Column    | Type                     | Modifiers   |
 |-----------+--------------------------+-------------|
 | time      | timestamp with time zone |  not null   |
-| device_id | integer                  |             |
+| device_id | oid                      |             |
 | m1        | double precision         |             |
 | m2        | double precision         |             |
 | m3        | double precision         |             |
@@ -150,7 +150,7 @@ USAGE:
     tsdbperf [FLAGS] [OPTIONS]
 
 FLAGS:
-        --dry-run    Do not write data to the DB
+        --dry-run    Skip DB inserts, report only data generation timings
     -h, --help       Prints help information
     -V, --version    Prints version information
 

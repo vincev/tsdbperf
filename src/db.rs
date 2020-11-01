@@ -23,7 +23,7 @@ pub struct DbOpt {
     /// Number of measurements per insert
     #[structopt(long = "batch-size", default_value = "10000")]
     pub batch_size: usize,
-    /// Do not write data to the DB
+    /// Skip DB inserts, report only data generation timings
     #[structopt(long = "dry-run")]
     pub dry_run: bool,
     /// Database host
@@ -118,7 +118,7 @@ impl Db {
 
         // Columns types are a timestamp, a device id, and a f64 for
         // each metric
-        let mut col_types = vec![Type::TIMESTAMP, Type::INT4];
+        let mut col_types = vec![Type::TIMESTAMP, Type::OID];
         col_types.extend(iter::repeat(Type::FLOAT8).take(opts.num_metrics as usize));
 
         let columns = (1..=opts.num_metrics)
@@ -151,7 +151,7 @@ impl Db {
 
             CREATE TABLE measurement(
               time  TIMESTAMP WITH TIME ZONE NOT NULL,
-              device_id INTEGER,
+              device_id OID,
               {});
 
             CREATE INDEX ON measurement(time DESC);

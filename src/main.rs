@@ -41,11 +41,11 @@ async fn main() -> Result<()> {
         .or_else(|| Some(num_cpus::get() as u32));
 
     if opt.num_workers.unwrap() > 64 {
-        Err(anyhow!("Number of workers cannot be grater than 64"))
+        Err(anyhow!("Number of workers cannot be greater than 64"))
     } else if opt.num_devices > 10_000 {
-        Err(anyhow!("Number of devices cannot be grater than 10,000"))
+        Err(anyhow!("Number of devices cannot be greater than 10,000"))
     } else if opt.dbopts.num_metrics > 100 {
-        Err(anyhow!("Number of metrics cannot be grater than 100"))
+        Err(anyhow!("Number of metrics cannot be greater than 100"))
     } else {
         info!("Number of workers:       {}", opt.num_workers.unwrap());
         info!("Devices per worker:      {}", opt.num_devices);

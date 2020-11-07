@@ -143,16 +143,17 @@ compose file and then rerun, the `--help` option shows a summary of
 all options:
 
 ```bash
-$ docker run --rm vincev/tsdbperf:v0.1.0 --help
-tsdbperf 0.1.0
+$ docker run --rm vincev/tsdbperf:v0.1.1 --help
+tsdbperf 0.1.1
 
 USAGE:
     tsdbperf [FLAGS] [OPTIONS]
 
 FLAGS:
-        --dry-run    Skip DB inserts, report only data generation timings
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+        --dry-run           Skip DB inserts, report only data generation timings
+    -h, --help              Prints help information
+        --no-hypertables    Run the tests without creating hypertables
+    -V, --version           Prints version information
 
 OPTIONS:
         --batch-size <batch-size>            Number of measurements per insert [default: 10000]

@@ -10,16 +10,8 @@ services:
       POSTGRES_PASSWORD: postgres
 
   tsdbperf:
-    image: vincev/tsdbperf:v0.1.0
+    image: vincev/tsdbperf:v0.1.1
     entrypoint:
       - /app/tsdbperf
       - --db-host
       - timescale
-      - --workers
-      - '8'
-      - --devices
-      - '10'
-      - --metrics
-      - '10'
-      - --measurements
-      - '100000'

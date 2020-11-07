@@ -117,15 +117,14 @@ Creating docker_timescale_1 ... done
 then run tsdbperf with `docker-compose --rm run`:
 
 ```bash
-$ docker-compose run tsdbperf
-[2020-10-31T14:44:34Z INFO  tokio_postgres::connection] NOTICE: table "measurem...
-[2020-10-31T14:44:34Z INFO  tsdbperf] Number of workers:       12
-[2020-10-31T14:44:34Z INFO  tsdbperf] Devices per worker:      10
-[2020-10-31T14:44:34Z INFO  tsdbperf] Metrics per device:      10
-[2020-10-31T14:44:34Z INFO  tsdbperf] Measurements per device: 100000
-[2020-10-31T14:44:46Z INFO  tsdbperf] Wrote   8000000 measurements in 12.83 seconds
-[2020-10-31T14:44:46Z INFO  tsdbperf] Wrote    623490 measurements per second
-[2020-10-31T14:44:46Z INFO  tsdbperf] Wrote   6234900 metrics per second
+$  docker-compose run tsdbperf
+[2020-11-07T20:08:06Z INFO  tsdbperf] Number of workers:       12
+[2020-11-07T20:08:06Z INFO  tsdbperf] Devices per worker:      10
+[2020-11-07T20:08:06Z INFO  tsdbperf] Metrics per device:      10
+[2020-11-07T20:08:06Z INFO  tsdbperf] Measurements per device: 100000
+[2020-11-07T20:08:27Z INFO  tsdbperf] Wrote  12000000 measurements in 19.47 seconds
+[2020-11-07T20:08:27Z INFO  tsdbperf] Wrote    616428 measurements per second
+[2020-11-07T20:08:27Z INFO  tsdbperf] Wrote   6164278 metrics per second
 ```
 
 If you want to override any of the default options you can pass them

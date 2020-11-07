@@ -114,12 +114,12 @@ Creating network "docker_default" with the default driver
 Creating docker_timescale_1 ... done
 ```
 
-then run tsdbperf with `docker-compose run`:
+then run tsdbperf with `docker-compose --rm run`:
 
 ```bash
 $ docker-compose run tsdbperf
 [2020-10-31T14:44:34Z INFO  tokio_postgres::connection] NOTICE: table "measurem...
-[2020-10-31T14:44:34Z INFO  tsdbperf] Number of workers:       8
+[2020-10-31T14:44:34Z INFO  tsdbperf] Number of workers:       12
 [2020-10-31T14:44:34Z INFO  tsdbperf] Devices per worker:      10
 [2020-10-31T14:44:34Z INFO  tsdbperf] Metrics per device:      10
 [2020-10-31T14:44:34Z INFO  tsdbperf] Measurements per device: 100000
@@ -128,22 +128,25 @@ $ docker-compose run tsdbperf
 [2020-10-31T14:44:46Z INFO  tsdbperf] Wrote   6234900 metrics per second
 ```
 
-To shutdown TimescaleDB and clean up containers run:
+If you want to override any of the default options you can pass them
+to the `run` command, for example to run with 6 workers, 15 devices
+per worker, and 5 metrics per device:
 
 ```bash
-$ docker-compose down -v
-Stopping docker_timescale_1 ... done
-Removing docker_tsdbperf_run_5614aecce5d9 ... done
-Removing docker_timescale_1               ... done
-Removing network docker_default
+$ docker-compose run --rm tsdbperf --workers 6 --devices 15 --metrics 5
+[2020-11-07T19:55:12Z INFO  tsdbperf] Number of workers:       6
+[2020-11-07T19:55:12Z INFO  tsdbperf] Devices per worker:      15
+[2020-11-07T19:55:12Z INFO  tsdbperf] Metrics per device:      5
+[2020-11-07T19:55:12Z INFO  tsdbperf] Measurements per device: 100000
+[2020-11-07T19:55:28Z INFO  tsdbperf] Wrote   9000000 measurements in 14.64 seconds
+[2020-11-07T19:55:28Z INFO  tsdbperf] Wrote    614880 measurements per second
+[2020-11-07T19:55:28Z INFO  tsdbperf] Wrote   3074400 metrics per second
 ```
 
-To change the number of workers, or devices, edit their values in the
-compose file and then rerun, the `--help` option shows a summary of
-all options:
+Use `docker-compose run --rm tsdbperf --help` to get a list of all options:
 
-```bash
-$ docker run --rm vincev/tsdbperf:v0.1.1 --help
+```
+$ docker-compose run --rm tsdbperf --help
 tsdbperf 0.1.1
 
 USAGE:
@@ -166,6 +169,15 @@ OPTIONS:
         --measurements <num-measurements>    Number of measurements per device [default: 100000]
         --metrics <num-metrics>              Number of metrics per device [default: 10]
         --workers <num-workers>              Number of parallel workers [default: number of CPUs]
+```
+
+To shutdown TimescaleDB and clean up containers run:
+
+```bash
+$ docker-compose down -v
+Stopping docker_timescale_1 ... done
+Removing docker_timescale_1 ... done
+Removing network docker_default
 ```
 
 [tsdbperf-compose]: https://github.com/vincev/tsdbperf/blob/master/docker/docker-compose.yml

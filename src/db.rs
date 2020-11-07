@@ -26,6 +26,9 @@ pub struct DbOpt {
     /// Skip DB inserts, report only data generation timings
     #[structopt(long = "dry-run")]
     pub dry_run: bool,
+    /// Run the tests without creating hypertables
+    #[structopt(long = "no-hypertables")]
+    pub no_hypertables: bool,
     /// Database host
     #[structopt(long = "db-host", default_value = "localhost")]
     pub db_host: String,
@@ -94,6 +97,7 @@ struct Db {
     chunk_interval: usize,
     col_types: Vec<Type>,
     copy_stm: String,
+    use_hypertables: bool,
 }
 
 impl Db {
@@ -137,6 +141,7 @@ impl Db {
             chunk_interval: opts.chunk_interval * 1_000_000,
             col_types,
             copy_stm,
+            use_hypertables: !opts.no_hypertables,
         })
     }
 
@@ -146,7 +151,7 @@ impl Db {
             .collect::<Vec<_>>()
             .join(", ");
 
-        let stm = format!(
+        let mut stms = vec![format!(
             "DROP TABLE IF EXISTS measurement;
 
             CREATE TABLE measurement(
@@ -155,16 +160,21 @@ impl Db {
               {});
 
             CREATE INDEX ON measurement(time DESC);
-            CREATE INDEX ON measurement(device_id, time DESC);
+            CREATE INDEX ON measurement(device_id, time DESC);",
+            columns
+        )];
 
-            SELECT create_hypertable(
-              'measurement',
-              'time',
-              chunk_time_interval => {});",
-            columns, self.chunk_interval
-        );
+        if self.use_hypertables {
+            stms.push(format!(
+                "SELECT create_hypertable(
+                   'measurement',
+                   'time',
+                   chunk_time_interval => {});",
+                self.chunk_interval
+            ));
+        }
 
-        self.db_client.batch_execute(&stm).await?;
+        self.db_client.batch_execute(&stms.join("\n")).await?;
         Ok(())
     }
 

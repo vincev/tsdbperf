@@ -102,7 +102,7 @@ Triggers:
 Number of child tables: 2 (Use \d+ to list them.)
 ```
 
-## Run with docker-compose
+## Run a local TimescaleDB instance with docker-compose
 
 If you have docker-compose installed the easiest way to run tsdbperf
 is to download this [compose file][tsdbperf-compose], run a local
@@ -142,10 +142,38 @@ $ docker-compose run --rm tsdbperf --workers 6 --devices 15 --metrics 5
 [2020-11-07T19:55:28Z INFO  tsdbperf] Wrote   3074400 metrics per second
 ```
 
-Use `docker-compose run --rm tsdbperf --help` to get a list of all options:
+To shutdown TimescaleDB and clean up containers run:
+
+```bash
+$ docker-compose down -v
+Stopping docker_timescale_1 ... done
+Removing docker_timescale_1 ... done
+Removing network docker_default
+```
+
+[tsdbperf-compose]: https://github.com/vincev/tsdbperf/blob/master/docker/docker-compose.yml
+
+
+## Run against a running TimescaleDB instance with docker
+
+If you have docker installed and would like to run tests against a
+running TimescaleDB instance you can use the following command:
 
 ```
-$ docker-compose run --rm tsdbperf --help
+$ docker run --rm --network host vincev/tsdbperf --db-host localhost
+[2020-11-25T22:41:57Z INFO  tsdbperf] Number of workers:       12
+[2020-11-25T22:41:57Z INFO  tsdbperf] Devices per worker:      10
+[2020-11-25T22:41:57Z INFO  tsdbperf] Metrics per device:      10
+[2020-11-25T22:41:57Z INFO  tsdbperf] Measurements per device: 100000
+[2020-11-25T22:42:16Z INFO  tsdbperf] Wrote  12000000 measurements in 18.73 seconds
+[2020-11-25T22:42:16Z INFO  tsdbperf] Wrote    640752 measurements per second
+[2020-11-25T22:42:16Z INFO  tsdbperf] Wrote   6407518 metrics per second
+```
+
+Use `docker run --rm vincev/tsdbperf --help` to get a list of all options:
+
+```
+$ docker run --rm vincev/tsdbperf --help
 tsdbperf 0.1.2
 
 USAGE:
@@ -170,14 +198,3 @@ OPTIONS:
         --metrics <num-metrics>              Number of metrics per device [default: 10]
         --workers <num-workers>              Number of parallel workers [default: number of CPUs]
 ```
-
-To shutdown TimescaleDB and clean up containers run:
-
-```bash
-$ docker-compose down -v
-Stopping docker_timescale_1 ... done
-Removing docker_timescale_1 ... done
-Removing network docker_default
-```
-
-[tsdbperf-compose]: https://github.com/vincev/tsdbperf/blob/master/docker/docker-compose.yml

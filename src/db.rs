@@ -29,6 +29,9 @@ pub struct DbOpt {
     /// Run the tests without creating hypertables
     #[structopt(long = "no-hypertables")]
     pub no_hypertables: bool,
+    /// Run the tests with upserts
+    #[structopt(long = "with-upserts")]
+    pub do_upserts: bool,
     /// Database host
     #[structopt(long = "db-host", default_value = "localhost")]
     pub db_host: String,
@@ -80,12 +83,11 @@ pub async fn run_worker(
     });
 
     let mut num_written = 0;
-    let db = Db::connect(opt).await?;
+    let mut db = Db::connect(opt).await?;
     while let Some(data) = rx.recv().await {
         if !opt.dry_run {
-            db.insert(&data).await?;
+            num_written += db.insert(&data).await?;
         }
-        num_written += data.len();
     }
 
     Ok(num_written)
@@ -95,9 +97,8 @@ struct Db {
     db_client: Client,
     num_metrics: u32,
     chunk_interval: usize,
-    col_types: Vec<Type>,
-    copy_stm: String,
     use_hypertables: bool,
+    command: Command,
 }
 
 impl Db {
@@ -120,28 +121,18 @@ impl Db {
             }
         });
 
-        // Columns types are a timestamp, a device id, and a f64 for
-        // each metric
-        let mut col_types = vec![Type::TIMESTAMP, Type::OID];
-        col_types.extend(iter::repeat(Type::FLOAT8).take(opts.num_metrics as usize));
-
-        let columns = (1..=opts.num_metrics)
-            .map(|c| format!("m{}", c))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let copy_stm = format!(
-            "COPY measurement (time, device_id, {}) FROM STDIN BINARY",
-            columns
-        );
+        let command = if opts.do_upserts {
+            Command::Upsert(UpsertCommand::new(opts, &db_client).await?)
+        } else {
+            Command::Insert(InsertCommand::new(opts).await?)
+        };
 
         Ok(Db {
             db_client,
             num_metrics: opts.num_metrics,
             chunk_interval: opts.chunk_interval * 1_000_000,
-            col_types,
-            copy_stm,
             use_hypertables: !opts.no_hypertables,
+            command,
         })
     }
 
@@ -156,11 +147,11 @@ impl Db {
 
             CREATE TABLE measurement(
               time  TIMESTAMP WITH TIME ZONE NOT NULL,
-              device_id OID,
+              device_id OID NOT NULL,
               {});
 
             CREATE INDEX ON measurement(time DESC);
-            CREATE INDEX ON measurement(device_id, time DESC);",
+            CREATE UNIQUE INDEX ON measurement(device_id, time DESC);",
             columns
         )];
 
@@ -178,23 +169,128 @@ impl Db {
         Ok(())
     }
 
-    async fn insert(&self, measurements: &Vec<Measurement>) -> Result<()> {
-        let sink = self.db_client.copy_in(self.copy_stm.as_str()).await?;
-        let writer = BinaryCopyInWriter::new(sink, &self.col_types);
+    async fn insert(&mut self, data: &Vec<Measurement>) -> Result<usize> {
+        let num_written = match &self.command {
+            Command::Insert(cmd) => cmd.execute(&mut self.db_client, data).await?,
+            Command::Upsert(cmd) => cmd.execute(&mut self.db_client, data).await?,
+        };
 
-        pin_mut!(writer);
-
-        let mut data: Vec<&'_ (dyn ToSql + Sync)> = Vec::new();
-        for m in measurements {
-            data.clear();
-            data.push(&m.time);
-            data.push(&m.device_id);
-            data.extend(m.metrics.iter().map(|x| x as &(dyn ToSql + Sync)));
-            writer.as_mut().write(&data).await?;
-        }
-
-        writer.finish().await?;
-
-        Ok(())
+        Ok(num_written)
     }
+}
+
+enum Command {
+    Insert(InsertCommand),
+    Upsert(UpsertCommand),
+}
+
+struct InsertCommand {
+    col_types: Vec<Type>,
+    copy_stm: String,
+}
+
+impl InsertCommand {
+    async fn new(opts: &DbOpt) -> Result<Self> {
+        Ok(Self {
+            col_types: get_col_types(opts.num_metrics),
+            copy_stm: get_copy_statement("measurement", opts.num_metrics),
+        })
+    }
+
+    async fn execute(&self, client: &mut Client, data: &Vec<Measurement>) -> Result<usize> {
+        let tx = client.transaction().await?;
+        let sink = tx.copy_in(self.copy_stm.as_str()).await?;
+        let writer = BinaryCopyInWriter::new(sink, &self.col_types);
+        let num_written = write(writer, data).await?;
+        tx.commit().await?;
+        Ok(num_written)
+    }
+}
+
+// An upsert operation happens when we try insert a row that violates
+// a unique constraint, in this case a row with the same time and
+// device id. To keep ingestion rate high we use copy in binary on a
+// temp table and then insert its data into the final table using an
+// ON CONFLICT update statement.
+struct UpsertCommand {
+    col_types: Vec<Type>,
+    copy_stm: String,
+    insert_stm: String,
+}
+
+impl UpsertCommand {
+    async fn new(opts: &DbOpt, client: &Client) -> Result<Self> {
+        client
+            .batch_execute(
+                "CREATE TEMP TABLE upserts ON COMMIT DELETE ROWS \
+                 AS TABLE measurement WITH NO DATA;",
+            )
+            .await?;
+
+        let set_columns = (1..=opts.num_metrics)
+            .map(|c| format!("m{} = EXCLUDED.m{}", c, c))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let insert_stm = format!(
+            "INSERT INTO measurement
+             SELECT * FROM upserts
+             ON CONFLICT (device_id, time) DO UPDATE SET {}",
+            set_columns
+        );
+
+        Ok(Self {
+            col_types: get_col_types(opts.num_metrics),
+            copy_stm: get_copy_statement("upserts", opts.num_metrics),
+            insert_stm,
+        })
+    }
+
+    async fn execute(&self, client: &mut Client, data: &Vec<Measurement>) -> Result<usize> {
+        let tx = client.transaction().await?;
+
+        let sink = tx.copy_in(self.copy_stm.as_str()).await?;
+        let writer = BinaryCopyInWriter::new(sink, &self.col_types);
+        let num_written = write(writer, data).await?;
+
+        tx.batch_execute(self.insert_stm.as_str()).await?;
+
+        tx.commit().await?;
+        Ok(num_written)
+    }
+}
+
+async fn write(writer: BinaryCopyInWriter, data: &Vec<Measurement>) -> Result<usize> {
+    pin_mut!(writer);
+
+    let mut row: Vec<&'_ (dyn ToSql + Sync)> = Vec::new();
+    for m in data {
+        row.clear();
+        row.push(&m.time);
+        row.push(&m.device_id);
+        row.extend(m.metrics.iter().map(|x| x as &(dyn ToSql + Sync)));
+        writer.as_mut().write(&row).await?;
+    }
+
+    writer.finish().await?;
+
+    Ok(data.len())
+}
+
+fn get_col_types(num_metrics: u32) -> Vec<Type> {
+    // Columns are a timestamp, a device id, and a f64 for each metric
+    let mut col_types = vec![Type::TIMESTAMP, Type::OID];
+    col_types.extend(iter::repeat(Type::FLOAT8).take(num_metrics as usize));
+    col_types
+}
+
+fn get_copy_statement(table: &str, num_metrics: u32) -> String {
+    let columns = (1..=num_metrics)
+        .map(|c| format!("m{}", c))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "COPY {} (time, device_id, {}) FROM STDIN BINARY",
+        table, columns
+    )
 }

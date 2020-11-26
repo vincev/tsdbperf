@@ -85,9 +85,11 @@ pub async fn run_worker(
     let mut num_written = 0;
     let mut db = Db::connect(opt).await?;
     while let Some(data) = rx.recv().await {
-        if !opt.dry_run {
-            num_written += db.insert(&data).await?;
-        }
+        num_written += if opt.dry_run {
+            data.len()
+        } else {
+            db.insert(data).await?
+        };
     }
 
     Ok(num_written)
@@ -169,7 +171,7 @@ impl Db {
         Ok(())
     }
 
-    async fn insert(&mut self, data: &Vec<Measurement>) -> Result<usize> {
+    async fn insert(&mut self, data: Vec<Measurement>) -> Result<usize> {
         let num_written = match &self.command {
             Command::Insert(cmd) => cmd.execute(&mut self.db_client, data).await?,
             Command::Upsert(cmd) => cmd.execute(&mut self.db_client, data).await?,
@@ -197,11 +199,11 @@ impl InsertCommand {
         })
     }
 
-    async fn execute(&self, client: &mut Client, data: &Vec<Measurement>) -> Result<usize> {
+    async fn execute(&self, client: &mut Client, data: Vec<Measurement>) -> Result<usize> {
         let tx = client.transaction().await?;
         let sink = tx.copy_in(self.copy_stm.as_str()).await?;
         let writer = BinaryCopyInWriter::new(sink, &self.col_types);
-        let num_written = write(writer, data).await?;
+        let num_written = write(writer, &data).await?;
         tx.commit().await?;
         Ok(num_written)
     }
@@ -246,12 +248,12 @@ impl UpsertCommand {
         })
     }
 
-    async fn execute(&self, client: &mut Client, data: &Vec<Measurement>) -> Result<usize> {
+    async fn execute(&self, client: &mut Client, data: Vec<Measurement>) -> Result<usize> {
         let tx = client.transaction().await?;
 
         let sink = tx.copy_in(self.copy_stm.as_str()).await?;
         let writer = BinaryCopyInWriter::new(sink, &self.col_types);
-        let num_written = write(writer, data).await?;
+        let num_written = write(writer, &data).await?;
 
         tx.batch_execute(self.insert_stm.as_str()).await?;
 

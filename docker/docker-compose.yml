@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: postgres
 
   tsdbperf:
-    image: vincev/tsdbperf:v0.1.2
+    image: vincev/tsdbperf
     entrypoint:
       - /app/tsdbperf
       - --db-host

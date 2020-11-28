@@ -46,6 +46,8 @@ async fn main() -> Result<()> {
         Err(anyhow!("Number of devices cannot be greater than 10,000"))
     } else if opt.dbopts.num_metrics > 100 {
         Err(anyhow!("Number of metrics cannot be greater than 100"))
+    } else if opt.dbopts.do_copy_upserts && opt.dbopts.do_upserts {
+        Err(anyhow!("Cannot run with both with-copy-upserts and with-insert-upserts"))
     } else {
         info!("Number of workers:       {}", opt.num_workers.unwrap());
         info!("Devices per worker:      {}", opt.num_devices);

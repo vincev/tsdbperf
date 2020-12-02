@@ -174,17 +174,18 @@ Use `docker run --rm vincev/tsdbperf --help` to get a list of all options:
 
 ```
 $ docker run --rm vincev/tsdbperf --help
-tsdbperf 0.1.2
+tsdbperf 0.1.4
 
 USAGE:
     tsdbperf [FLAGS] [OPTIONS]
 
 FLAGS:
-        --with-upserts      Run the tests with upserts
-        --dry-run           Skip DB inserts, report only data generation timings
-    -h, --help              Prints help information
-        --no-hypertables    Run the tests without creating hypertables
-    -V, --version           Prints version information
+        --with-copy-upserts      Run the tests with copy in upserts
+        --with-upserts           Run the tests with upserts
+        --dry-run                Skip DB inserts, report only data generation timings
+    -h, --help                   Prints help information
+        --no-hypertables         Run the tests without creating hypertables
+    -V, --version                Prints version information
 
 OPTIONS:
         --batch-size <batch-size>            Number of measurements per insert [default: 10000]

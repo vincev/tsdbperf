@@ -1,7 +1,8 @@
 #![deny(rust_2018_idioms)]
 
+use std::time::Instant;
+
 use anyhow::{anyhow, Result};
-use chrono::Utc;
 use futures::future::try_join_all;
 use log::info;
 use structopt::StructOpt;
@@ -47,7 +48,9 @@ async fn main() -> Result<()> {
     } else if opt.dbopts.num_metrics > 100 {
         Err(anyhow!("Number of metrics cannot be greater than 100"))
     } else if opt.dbopts.do_copy_upserts && opt.dbopts.do_upserts {
-        Err(anyhow!("Cannot run with both with-copy-upserts and with-insert-upserts"))
+        Err(anyhow!(
+            "Cannot run with both with-copy-upserts and with-insert-upserts"
+        ))
     } else {
         info!("Number of workers:       {}", opt.num_workers.unwrap());
         info!("Devices per worker:      {}", opt.num_devices);
@@ -60,7 +63,8 @@ async fn main() -> Result<()> {
 
 async fn run_workers(opt: &Opt) -> Result<()> {
     db::init(&opt.dbopts).await?;
-    let start_time = Utc::now();
+
+    let start_time = Instant::now();
 
     let handles = (1..=opt.num_workers.unwrap())
         .map(|worker_id| {
@@ -79,7 +83,7 @@ async fn run_workers(opt: &Opt) -> Result<()> {
         .iter()
         .sum();
 
-    let elapsed_secs = (Utc::now() - start_time).num_milliseconds() as f64 / 1000.0;
+    let elapsed_secs = start_time.elapsed().as_millis() as f64 / 1000.0;
 
     info!(
         "Wrote {:9} measurements in {:.2} seconds",

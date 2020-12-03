@@ -114,10 +114,10 @@ Creating network "docker_default" with the default driver
 Creating docker_timescale_1 ... done
 ```
 
-then run tsdbperf with `docker-compose --rm run`:
+then run tsdbperf with `docker-compose run --rm tsdbperf`:
 
 ```bash
-$  docker-compose run tsdbperf
+$  docker-compose run --rm tsdbperf
 [2020-11-07T20:08:06Z INFO  tsdbperf] Number of workers:       12
 [2020-11-07T20:08:06Z INFO  tsdbperf] Devices per worker:      10
 [2020-11-07T20:08:06Z INFO  tsdbperf] Metrics per device:      10

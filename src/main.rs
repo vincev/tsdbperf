@@ -32,7 +32,7 @@ pub struct Opt {
 #[tokio::main]
 async fn main() -> Result<()> {
     let log_env = env_logger::Env::default().default_filter_or("info");
-    env_logger::from_env(log_env).init();
+    env_logger::Builder::from_env(log_env).init();
 
     let mut opt = Opt::from_args();
 

@@ -32,7 +32,7 @@ pub struct Opt {
 #[tokio::main]
 async fn main() -> Result<()> {
     let log_env = env_logger::Env::default().default_filter_or("info");
-    env_logger::from_env(log_env).init();
+    env_logger::Builder::from_env(log_env).init();
 
     let mut opt = Opt::from_args();
 
@@ -47,10 +47,6 @@ async fn main() -> Result<()> {
         Err(anyhow!("Number of devices cannot be greater than 10,000"))
     } else if opt.dbopts.num_metrics > 100 {
         Err(anyhow!("Number of metrics cannot be greater than 100"))
-    } else if opt.dbopts.do_copy_upserts && opt.dbopts.do_upserts {
-        Err(anyhow!(
-            "Cannot run with both with-copy-upserts and with-insert-upserts"
-        ))
     } else {
         info!("Number of workers:       {}", opt.num_workers.unwrap());
         info!("Devices per worker:      {}", opt.num_devices);

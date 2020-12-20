@@ -1,6 +1,8 @@
+use std::boxed::Box;
 use std::iter;
 
 use anyhow::Result;
+use async_trait::async_trait;
 use futures::pin_mut;
 use tokio_postgres::binary_copy::BinaryCopyInWriter;
 use tokio_postgres::types::{ToSql, Type};
@@ -10,17 +12,19 @@ use super::DbOpt;
 use crate::measurement::Measurement;
 
 pub struct Command {
-    command: CommandType,
+    command: Box<dyn GenericCommand + Sync + Send>,
 }
 
 impl Command {
     pub async fn new(opt: &DbOpt, client: &Client) -> Result<Self> {
-        let command = if opt.do_upserts {
-            CommandType::Upsert(Upsert::new(opt, client).await?)
-        } else if opt.do_copy_upserts {
-            CommandType::CopyInUpsert(CopyInUpsert::new(opt, client).await?)
+        let command: Box<dyn GenericCommand + Sync + Send> = if opt.with_upserts {
+            Box::new(Upsert::new(opt, client).await?)
+        } else if opt.with_copy_upserts {
+            Box::new(CopyInUpsert::new(opt, client).await?)
+        } else if opt.with_jsonb {
+            Box::new(CopyInJsonb::new(opt)?)
         } else {
-            CommandType::CopyIn(CopyIn::new(opt)?)
+            Box::new(CopyIn::new(opt)?)
         };
 
         Ok(Command { command })
@@ -28,22 +32,15 @@ impl Command {
 
     pub async fn execute(&self, client: &mut Client, data: Vec<Measurement>) -> Result<usize> {
         let tx = client.transaction().await?;
-
-        let num_written = match &self.command {
-            CommandType::CopyIn(cmd) => cmd.execute(&tx, data).await?,
-            CommandType::CopyInUpsert(cmd) => cmd.execute(&tx, data).await?,
-            CommandType::Upsert(cmd) => cmd.execute(&tx, data).await?,
-        };
-
+        let num_written = self.command.execute(&tx, data).await?;
         tx.commit().await?;
         Ok(num_written)
     }
 }
 
-enum CommandType {
-    CopyIn(CopyIn),
-    CopyInUpsert(CopyInUpsert),
-    Upsert(Upsert),
+#[async_trait]
+trait GenericCommand {
+    async fn execute(&self, tx: &Transaction<'_>, data: Vec<Measurement>) -> Result<usize>;
 }
 
 struct CopyIn {
@@ -61,11 +58,99 @@ impl CopyIn {
             copy_stm: get_copy_statement("measurement", opt.num_metrics),
         })
     }
+}
 
+#[async_trait]
+impl GenericCommand for CopyIn {
     async fn execute(&self, tx: &Transaction<'_>, data: Vec<Measurement>) -> Result<usize> {
         let sink = tx.copy_in(self.copy_stm.as_str()).await?;
         let writer = BinaryCopyInWriter::new(sink, &self.col_types);
-        write(writer, &data).await
+
+        pin_mut!(writer);
+
+        let mut row: Vec<&'_ (dyn ToSql + Sync)> = Vec::new();
+        for m in &data {
+            row.clear();
+            row.push(&m.time);
+            row.push(&m.device_id);
+            row.extend(m.metrics.iter().map(|x| x as &(dyn ToSql + Sync)));
+            writer.as_mut().write(&row).await?;
+        }
+
+        writer.finish().await?;
+
+        Ok(data.len())
+    }
+}
+
+// The CopyIn command above inserts a column for each measurement,
+// the greater the number of measurements the lower is the number
+// of rows per second we can insert.
+// This command inserts the measurements in a single JSONB column
+// by serializing them as JSON.
+struct CopyInJsonb {
+    col_types: Vec<Type>,
+    num_metrics: u32,
+    copy_stm: String,
+}
+
+impl CopyInJsonb {
+    fn new(opt: &DbOpt) -> Result<Self> {
+        let col_types = vec![Type::TIMESTAMP, Type::OID, Type::JSONB];
+        let copy_stm = "COPY measurement (time, device_id, metrics) FROM STDIN BINARY";
+
+        Ok(Self {
+            col_types,
+            num_metrics: opt.num_metrics,
+            copy_stm: copy_stm.to_string(),
+        })
+    }
+}
+
+#[async_trait]
+impl GenericCommand for CopyInJsonb {
+    async fn execute(&self, tx: &Transaction<'_>, data: Vec<Measurement>) -> Result<usize> {
+        use serde_json::{self, Map, Number, Value};
+
+        // Reuse the same json object for all metrics to avoid allocations
+        let mut json = Value::Object(
+            (0..self.num_metrics)
+                .map(|m| {
+                    (
+                        format!("m{}", m + 1),
+                        Value::Number(Number::from_f64(0.0).unwrap()),
+                    )
+                })
+                .collect::<Map<_, _>>(),
+        );
+
+        let sink = tx.copy_in(self.copy_stm.as_str()).await?;
+        let writer = BinaryCopyInWriter::new(sink, &self.col_types);
+
+        pin_mut!(writer);
+
+        for m in &data {
+            let mut row: Vec<&'_ (dyn ToSql + Sync)> = Vec::new();
+            row.push(&m.time);
+            row.push(&m.device_id);
+
+            let values = json.as_object_mut().unwrap();
+
+            // By using the `preserve_order` feature for serde_json the
+            // values in the map are ordered so we can simply do a zip
+            // for the updates without having lookup by key.
+            for (m, v) in m.metrics.iter().zip(values.values_mut()) {
+                *v = Value::Number(Number::from_f64(*m).unwrap());
+            }
+
+            row.push(&json);
+
+            writer.as_mut().write(&row).await?;
+        }
+
+        writer.finish().await?;
+
+        Ok(data.len())
     }
 }
 
@@ -110,13 +195,29 @@ impl CopyInUpsert {
             upsert_stm,
         })
     }
+}
 
+#[async_trait]
+impl GenericCommand for CopyInUpsert {
     async fn execute(&self, tx: &Transaction<'_>, data: Vec<Measurement>) -> Result<usize> {
         let sink = tx.copy_in(self.copy_stm.as_str()).await?;
         let writer = BinaryCopyInWriter::new(sink, &self.col_types);
-        let num_written = write(writer, &data).await?;
+
+        pin_mut!(writer);
+
+        let mut row: Vec<&'_ (dyn ToSql + Sync)> = Vec::new();
+        for m in &data {
+            row.clear();
+            row.push(&m.time);
+            row.push(&m.device_id);
+            row.extend(m.metrics.iter().map(|x| x as &(dyn ToSql + Sync)));
+            writer.as_mut().write(&row).await?;
+        }
+
+        writer.finish().await?;
+
         tx.batch_execute(self.upsert_stm.as_str()).await?;
-        Ok(num_written)
+        Ok(data.len())
     }
 }
 
@@ -167,7 +268,10 @@ impl Upsert {
             num_metrics: opt.num_metrics,
         })
     }
+}
 
+#[async_trait]
+impl GenericCommand for Upsert {
     async fn execute(&self, tx: &Transaction<'_>, data: Vec<Measurement>) -> Result<usize> {
         let mut times = Vec::with_capacity(data.len());
         let mut device_ids = Vec::with_capacity(data.len());
@@ -192,23 +296,6 @@ impl Upsert {
         tx.execute(&self.statement, &cols).await?;
         Ok(data.len())
     }
-}
-
-async fn write(writer: BinaryCopyInWriter, data: &Vec<Measurement>) -> Result<usize> {
-    pin_mut!(writer);
-
-    let mut row: Vec<&'_ (dyn ToSql + Sync)> = Vec::new();
-    for m in data {
-        row.clear();
-        row.push(&m.time);
-        row.push(&m.device_id);
-        row.extend(m.metrics.iter().map(|x| x as &(dyn ToSql + Sync)));
-        writer.as_mut().write(&row).await?;
-    }
-
-    writer.finish().await?;
-
-    Ok(data.len())
 }
 
 fn get_copy_statement(table: &str, num_metrics: u32) -> String {

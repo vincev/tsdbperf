@@ -102,6 +102,22 @@ Triggers:
 Number of child tables: 2 (Use \d+ to list them.)
 ```
 
+If we run with the `--with-jsonb` option then all metrics are inserted into
+a `metrics` column as JSONB:
+
+```sql
+postgres@localhost:postgres> select time, metrics from measurement where device_id=3 limit 5
++-------------------------------+----------------------------------------------------+
+| time                          | metrics                                            |
+|-------------------------------+----------------------------------------------------|
+| 2020-12-19 14:34:04.116101+00 | {"m1": 995.5610470263719, "m2": 939.2307180345128} |
+| 2020-12-19 14:34:05.116101+00 | {"m1": 995.6124798524728, "m2": 938.6678274276368} |
+| 2020-12-19 14:34:06.116101+00 | {"m1": 996.0597176913179, "m2": 938.5417961830267} |
+| 2020-12-19 14:34:07.116101+00 | {"m1": 995.5232004280007, "m2": 938.7215776266249} |
+| 2020-12-19 14:34:08.116101+00 | {"m1": 995.0165418185591, "m2": 939.023750940609}  |
++-------------------------------+----------------------------------------------------+
+```
+
 ## Run a local TimescaleDB instance with docker-compose
 
 If you have docker-compose installed the easiest way to run tsdbperf
@@ -174,18 +190,19 @@ Use `docker run --rm vincev/tsdbperf --help` to get a list of all options:
 
 ```
 $ docker run --rm vincev/tsdbperf --help
-tsdbperf 0.1.4
+tsdbperf 0.1.5
 
 USAGE:
     tsdbperf [FLAGS] [OPTIONS]
 
 FLAGS:
-        --with-copy-upserts      Run the tests with copy in upserts
-        --with-upserts           Run the tests with upserts
-        --dry-run                Skip DB inserts, report only data generation timings
-    -h, --help                   Prints help information
-        --no-hypertables         Run the tests without creating hypertables
-    -V, --version                Prints version information
+        --dry-run              Skip DB inserts, report only data generation timings
+    -h, --help                 Prints help information
+        --no-hypertables       Run the tests without creating hypertables
+    -V, --version              Prints version information
+        --with-copy-upserts    Run the tests with copy in upserts
+        --with-jsonb           Insert metrics as a JSONB column
+        --with-upserts         Run the tests with upserts
 
 OPTIONS:
         --batch-size <batch-size>            Number of measurements per insert [default: 10000]

@@ -33,7 +33,7 @@ pub struct DbOpt {
     /// Run the tests with upserts
     #[structopt(long, conflicts_with = "with-jsonb")]
     pub with_upserts: bool,
-    /// Insert metrics as a jsonb column
+    /// Insert metrics as a JSONB column
     #[structopt(long)]
     pub with_jsonb: bool,
     /// Database host

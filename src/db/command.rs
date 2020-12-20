@@ -15,9 +15,9 @@ pub struct Command {
 
 impl Command {
     pub async fn new(opt: &DbOpt, client: &Client) -> Result<Self> {
-        let command = if opt.do_upserts {
+        let command = if opt.with_upserts {
             CommandType::Upsert(Upsert::new(opt, client).await?)
-        } else if opt.do_copy_upserts {
+        } else if opt.with_copy_upserts {
             CommandType::CopyInUpsert(CopyInUpsert::new(opt, client).await?)
         } else {
             CommandType::CopyIn(CopyIn::new(opt)?)

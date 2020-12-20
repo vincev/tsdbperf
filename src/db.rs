@@ -28,11 +28,11 @@ pub struct DbOpt {
     #[structopt(long = "no-hypertables")]
     pub no_hypertables: bool,
     /// Run the tests with copy in upserts
-    #[structopt(long = "with-copy-upserts")]
-    pub do_copy_upserts: bool,
+    #[structopt(long)]
+    pub with_copy_upserts: bool,
     /// Run the tests with upserts
-    #[structopt(long = "with-upserts")]
-    pub do_upserts: bool,
+    #[structopt(long, conflicts_with = "with-copy-upserts")]
+    pub with_upserts: bool,
     /// Database host
     #[structopt(long = "db-host", default_value = "localhost")]
     pub db_host: String,

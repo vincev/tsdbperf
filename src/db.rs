@@ -28,11 +28,14 @@ pub struct DbOpt {
     #[structopt(long = "no-hypertables")]
     pub no_hypertables: bool,
     /// Run the tests with copy in upserts
-    #[structopt(long)]
+    #[structopt(long, conflicts_with_all = &["with-upserts", "with-jsonb"])]
     pub with_copy_upserts: bool,
     /// Run the tests with upserts
-    #[structopt(long, conflicts_with = "with-copy-upserts")]
+    #[structopt(long, conflicts_with = "with-jsonb")]
     pub with_upserts: bool,
+    /// Insert metrics as a jsonb column
+    #[structopt(long)]
+    pub with_jsonb: bool,
     /// Database host
     #[structopt(long = "db-host", default_value = "localhost")]
     pub db_host: String,
@@ -105,6 +108,7 @@ struct Db {
     num_metrics: u32,
     chunk_interval: usize,
     use_hypertables: bool,
+    with_jsonb: bool,
 }
 
 impl Db {
@@ -132,27 +136,39 @@ impl Db {
             num_metrics: opts.num_metrics,
             chunk_interval: opts.chunk_interval * 1_000_000,
             use_hypertables: !opts.no_hypertables,
+            with_jsonb: opts.with_jsonb,
         })
     }
 
     async fn create_schema(&self) -> Result<()> {
-        let columns = (1..=self.num_metrics)
-            .map(|c| format!("m{} DOUBLE PRECISION", c))
-            .collect::<Vec<_>>()
-            .join(", ");
+        let mut stms = vec![format!("DROP TABLE IF EXISTS measurement;")];
 
-        let mut stms = vec![format!(
-            "DROP TABLE IF EXISTS measurement;
+        if self.with_jsonb {
+            stms.push(format!(
+                "CREATE TABLE measurement(
+                    time  TIMESTAMP WITH TIME ZONE NOT NULL,
+                    device_id OID NOT NULL,
+                    metrics JSONB NOT NULL);"
+            ));
+        } else {
+            let columns = (1..=self.num_metrics)
+                .map(|c| format!("m{} DOUBLE PRECISION", c))
+                .collect::<Vec<_>>()
+                .join(", ");
 
-            CREATE TABLE measurement(
-              time  TIMESTAMP WITH TIME ZONE NOT NULL,
-              device_id OID NOT NULL,
-              {});
+            stms.push(format!(
+                "CREATE TABLE measurement(
+                    time  TIMESTAMP WITH TIME ZONE NOT NULL,
+                    device_id OID NOT NULL,
+                    {});",
+                columns
+            ));
+        }
 
-            CREATE INDEX ON measurement(time DESC);
-            CREATE UNIQUE INDEX ON measurement(device_id, time DESC);",
-            columns
-        )];
+        stms.push(format!(
+            "CREATE INDEX ON measurement(time DESC);
+             CREATE UNIQUE INDEX ON measurement(device_id, time DESC);"
+        ));
 
         if self.use_hypertables {
             stms.push(format!(

@@ -4,7 +4,7 @@ use anyhow::Result;
 use log::error;
 use structopt::StructOpt;
 use tokio::sync::mpsc;
-use tokio_postgres::Client;
+use tokio_postgres::{Client, Row};
 
 use crate::measurement::{Measurement, MeasurementIterator};
 
@@ -71,17 +71,20 @@ pub async fn run_worker(
     thread::spawn(move || {
         let mut measurements =
             MeasurementIterator::new(worker_id, num_devices, num_metrics, num_measurements);
-        let mut num_written = 0;
-        while num_written < (num_devices * num_measurements) as usize {
+        let mut num_sent = 0;
+        let send_until = num_devices * num_measurements;
+
+        while num_sent < send_until {
             let mut data = Vec::with_capacity(batch_size);
             for m in &mut measurements {
                 data.push(m);
-                if data.len() == batch_size {
+                num_sent += 1;
+
+                if data.len() == batch_size || num_sent == send_until {
                     break;
                 }
             }
 
-            num_written += data.len();
             if tx.blocking_send(data).is_err() {
                 break; // Reader disconnected
             }

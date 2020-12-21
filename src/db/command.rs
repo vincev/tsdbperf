@@ -138,7 +138,7 @@ impl GenericCommand for CopyInJsonb {
 
             // By using the `preserve_order` feature for serde_json the
             // values in the map are ordered so we can simply do a zip
-            // for the updates without having lookup by key.
+            // for the updates without having to lookup by key.
             for (m, v) in m.metrics.iter().zip(values.values_mut()) {
                 *v = Value::Number(Number::from_f64(*m).unwrap());
             }

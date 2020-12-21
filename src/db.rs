@@ -4,7 +4,7 @@ use anyhow::Result;
 use log::error;
 use structopt::StructOpt;
 use tokio::sync::mpsc;
-use tokio_postgres::Client;
+use tokio_postgres::{Client, Row};
 
 use crate::measurement::{Measurement, MeasurementIterator};
 
@@ -71,17 +71,20 @@ pub async fn run_worker(
     thread::spawn(move || {
         let mut measurements =
             MeasurementIterator::new(worker_id, num_devices, num_metrics, num_measurements);
-        let mut num_written = 0;
-        while num_written < (num_devices * num_measurements) as usize {
+        let mut num_sent = 0;
+        let send_until = num_devices * num_measurements;
+
+        while num_sent < send_until {
             let mut data = Vec::with_capacity(batch_size);
             for m in &mut measurements {
                 data.push(m);
-                if data.len() == batch_size {
+                num_sent += 1;
+
+                if data.len() == batch_size || num_sent == send_until {
                     break;
                 }
             }
 
-            num_written += data.len();
             if tx.blocking_send(data).is_err() {
                 break; // Reader disconnected
             }
@@ -103,7 +106,7 @@ pub async fn run_worker(
     Ok(num_written)
 }
 
-struct Db {
+pub struct Db {
     client: Client,
     num_metrics: u32,
     chunk_interval: usize,
@@ -112,7 +115,7 @@ struct Db {
 }
 
 impl Db {
-    async fn connect(opts: &DbOpt) -> Result<Self> {
+    pub async fn connect(opts: &DbOpt) -> Result<Self> {
         use tokio_postgres::{config::Config, NoTls};
 
         let (client, connection) = Config::new()
@@ -138,6 +141,10 @@ impl Db {
             use_hypertables: !opts.no_hypertables,
             with_jsonb: opts.with_jsonb,
         })
+    }
+
+    pub async fn query(&self, query: &str) -> Result<Vec<Row>> {
+        Ok(self.client.query(query, &[]).await?)
     }
 
     async fn create_schema(&self) -> Result<()> {

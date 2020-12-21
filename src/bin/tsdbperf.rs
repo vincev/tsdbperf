@@ -7,8 +7,7 @@ use futures::future::try_join_all;
 use log::info;
 use structopt::StructOpt;
 
-mod db;
-mod measurement;
+use tsdbperf::db;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "tsdbperf")]

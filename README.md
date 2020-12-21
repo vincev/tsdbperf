@@ -1,10 +1,10 @@
 # Tsdbperf
 
+[![Build Status][actions-badge]][actions-url]
+
 An async [Rust][rust-lang] application that inserts simulated
  time-series data into a [TimescaleDB][timescale-db] instance and
  reports ingestion rate statistics.
-
-[![Build Status][actions-badge]][actions-url]
 
 [rust-lang]: https://www.rust-lang.org
 [timescale-db]: https://www.timescale.com/

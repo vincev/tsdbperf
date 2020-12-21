@@ -106,7 +106,7 @@ pub async fn run_worker(
     Ok(num_written)
 }
 
-struct Db {
+pub struct Db {
     client: Client,
     num_metrics: u32,
     chunk_interval: usize,
@@ -115,7 +115,7 @@ struct Db {
 }
 
 impl Db {
-    async fn connect(opts: &DbOpt) -> Result<Self> {
+    pub async fn connect(opts: &DbOpt) -> Result<Self> {
         use tokio_postgres::{config::Config, NoTls};
 
         let (client, connection) = Config::new()
@@ -141,6 +141,10 @@ impl Db {
             use_hypertables: !opts.no_hypertables,
             with_jsonb: opts.with_jsonb,
         })
+    }
+
+    pub async fn query(&self, query: &str) -> Result<Vec<Row>> {
+        Ok(self.client.query(query, &[]).await?)
     }
 
     async fn create_schema(&self) -> Result<()> {

@@ -194,7 +194,7 @@ Use `docker run --rm vincev/tsdbperf --help` to get a list of all options:
 
 ```
 $ docker run --rm vincev/tsdbperf --help
-tsdbperf 0.1.5
+tsdbperf 0.1.6
 
 USAGE:
     tsdbperf [FLAGS] [OPTIONS]

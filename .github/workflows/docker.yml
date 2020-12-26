@@ -6,9 +6,7 @@ on:
       - '**'
     tags:
       - 'v*'
-
-env:
-  CARGO_TERM_COLOR: always
+  pull_request:
 
 # From https://github.com/docker/build-push-action
 jobs:

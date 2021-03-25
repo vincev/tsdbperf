@@ -15,6 +15,14 @@ jobs:
     steps:
     - name: Check out tsdbperf
       uses: actions/checkout@v2
+    - name: Docker meta
+      id: docker_meta
+      uses: crazy-max/ghaction-docker-meta@v1
+      with:
+        images: vincev/tsdbperf
+        tag-semver: |
+          {{version}}
+          {{major}}.{{minor}}
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v1
     - name: Login to Docker Hub

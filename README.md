@@ -122,6 +122,45 @@ postgres@localhost:postgres> select time, metrics from measurement where device_
 +-------------------------------+----------------------------------------------------+
 ```
 
+## Local binary installation
+
+Github release action creates binaries for Linux and Mac, they can be
+downloaded from the [Releases](https://github.com/vincev/tsdbperf/releases)
+page as compressed binaries for both x86-64 and AArch64 architectures.
+
+The binary needs to be made executable after downloading:
+
+```bash
+$ gunzip tsdbperf-x86_64-apple-darwin.gz
+$ chmod +x tsdbperf-x86_64-apple-darwin
+$ ./tsdbperf-x86_64-apple-darwin --help
+tsdbperf 0.1.8
+
+USAGE:
+    tsdbperf-x86_64-apple-darwin [FLAGS] [OPTIONS]
+
+FLAGS:
+        --dry-run              Skip DB inserts, report only data generation timings
+    -h, --help                 Prints help information
+        --no-hypertables       Run the tests without creating hypertables
+    -V, --version              Prints version information
+        --with-copy-upserts    Run the tests with copy in upserts
+        --with-jsonb           Insert metrics as a JSONB column
+        --with-upserts         Run the tests with upserts
+
+OPTIONS:
+        --batch-size <batch-size>            Number of measurements per insert [default: 10000]
+        --chunk-interval <chunk-interval>    Hypertable chunk interval in seconds [default: 86400]
+        --db-host <db-host>                  Database host [default: localhost]
+        --db-name <db-name>                  Database name [default: postgres]
+        --db-password <db-password>          Database password [default: postgres]
+        --db-user <db-user>                  Database user [default: postgres]
+        --devices <num-devices>              Number of devices per worker [default: 10]
+        --measurements <num-measurements>    Number of measurements per device [default: 100000]
+        --metrics <num-metrics>              Number of metrics per device [default: 10]
+        --workers <num-workers>              Number of parallel workers [default: number of CPUs]
+```
+
 ## Run a local TimescaleDB instance with docker-compose
 
 If you have docker-compose installed the easiest way to run tsdbperf
@@ -176,10 +215,10 @@ Removing network docker_default
 
 ## Run against a running TimescaleDB instance with docker
 
-If you have docker installed and would like to run tests against a
-running TimescaleDB instance you can use the following command:
+If you have docker installed and would like to run tests against a running
+TimescaleDB instance you can use the following command:
 
-```
+```bash
 $ docker run --rm --network host vincev/tsdbperf --db-host localhost
 [2020-11-25T22:41:57Z INFO  tsdbperf] Number of workers:       12
 [2020-11-25T22:41:57Z INFO  tsdbperf] Devices per worker:      10
@@ -188,35 +227,4 @@ $ docker run --rm --network host vincev/tsdbperf --db-host localhost
 [2020-11-25T22:42:16Z INFO  tsdbperf] Wrote  12000000 measurements in 18.73 seconds
 [2020-11-25T22:42:16Z INFO  tsdbperf] Wrote    640752 measurements per second
 [2020-11-25T22:42:16Z INFO  tsdbperf] Wrote   6407518 metrics per second
-```
-
-Use `docker run --rm vincev/tsdbperf --help` to get a list of all options:
-
-```
-$ docker run --rm vincev/tsdbperf --help
-tsdbperf 0.1.7
-
-USAGE:
-    tsdbperf [FLAGS] [OPTIONS]
-
-FLAGS:
-        --dry-run              Skip DB inserts, report only data generation timings
-    -h, --help                 Prints help information
-        --no-hypertables       Run the tests without creating hypertables
-    -V, --version              Prints version information
-        --with-copy-upserts    Run the tests with copy in upserts
-        --with-jsonb           Insert metrics as a JSONB column
-        --with-upserts         Run the tests with upserts
-
-OPTIONS:
-        --batch-size <batch-size>            Number of measurements per insert [default: 10000]
-        --chunk-interval <chunk-interval>    Hypertable chunk interval in seconds [default: 86400]
-        --db-host <db-host>                  Database host [default: localhost]
-        --db-name <db-name>                  Database name [default: postgres]
-        --db-password <db-password>          Database password [default: postgres]
-        --db-user <db-user>                  Database user [default: postgres]
-        --devices <num-devices>              Number of devices per worker [default: 10]
-        --measurements <num-measurements>    Number of measurements per device [default: 100000]
-        --metrics <num-metrics>              Number of metrics per device [default: 10]
-        --workers <num-workers>              Number of parallel workers [default: number of CPUs]
 ```

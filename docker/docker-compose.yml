@@ -2,7 +2,7 @@ version: '3'
 
 services:
   timescale:
-    image: timescale/timescaledb:2.1.0-pg13
+    image: timescale/timescaledb:2.3.0-pg13
     ports:
       - 5432:5432
     environment:

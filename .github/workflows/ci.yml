@@ -16,7 +16,7 @@ jobs:
 
     services:
       timesacle:
-        image: timescale/timescaledb:2.1.0-pg13
+        image: timescale/timescaledb:2.3.0-pg13
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

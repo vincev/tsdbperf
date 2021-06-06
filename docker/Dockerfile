@@ -3,9 +3,9 @@ FROM rust:latest as build
 WORKDIR /app
 
 COPY Cargo.lock Cargo.toml ./
-COPY src src
+COPY tsdbperf tsdbperf
 
-RUN cargo build --release --all
+RUN cargo build --manifest-path ./tsdbperf/Cargo.toml --bin tsdbperf --release
 
 FROM debian:buster-slim
 

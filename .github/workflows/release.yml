@@ -17,7 +17,7 @@ jobs:
     name: dist (x86_64-unknown-linux-gnu)
     runs-on: ubuntu-18.04
     env:
-      PGPARQ_TARGET: x86_64-unknown-linux-gnu
+      TSDBPERF_TARGET: x86_64-unknown-linux-gnu
 
     steps:
     - name: Checkout repository
@@ -46,7 +46,7 @@ jobs:
     name: dist (aarch64-unknown-linux-gnu)
     runs-on: ubuntu-18.04
     env:
-      PGPARQ_TARGET: aarch64-unknown-linux-gnu
+      TSDBPERF_TARGET: aarch64-unknown-linux-gnu
       CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
     steps:
@@ -81,7 +81,7 @@ jobs:
     name: dist (x86_64-apple-darwin)
     runs-on: macos-latest
     env:
-      PGPARQ_TARGET: x86_64-apple-darwin
+      TSDBPERF_TARGET: x86_64-apple-darwin
       SELECT_XCODE: /Applications/Xcode_12.2.app
 
     steps:
@@ -113,7 +113,7 @@ jobs:
     name: dist (aarch64-apple-darwin)
     runs-on: macos-latest
     env:
-      PGPARQ_TARGET: aarch64-apple-darwin
+      TSDBPERF_TARGET: aarch64-apple-darwin
       SELECT_XCODE: /Applications/Xcode_12.2.app
 
     steps:

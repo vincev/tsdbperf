@@ -64,7 +64,7 @@ fn run_install() -> Result<()> {
 }
 
 fn get_target() -> String {
-    match env::var("tsdbperf_TARGET") {
+    match env::var("TSDBPERF_TARGET") {
         Ok(target) => target,
         _ => {
             if cfg!(target_os = "linux") {
@@ -74,7 +74,7 @@ fn get_target() -> String {
             } else if cfg!(target_os = "macos") {
                 "x86_64-apple-darwin".to_string()
             } else {
-                panic!("Unsupported OS, maybe try setting tsdbperf_TARGET")
+                panic!("Unsupported OS, maybe try setting TSDBPERF_TARGET")
             }
         }
     }

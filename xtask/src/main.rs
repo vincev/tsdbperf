@@ -22,7 +22,7 @@ use std::{
 use anyhow::Result;
 use flate2::{write::GzEncoder, Compression};
 use structopt::StructOpt;
-use xshell::{cmd, mkdir_p, rm_rf};
+use xshell::{cmd, Shell};
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "xtask")]
@@ -39,13 +39,15 @@ fn main() -> Result<()> {
 }
 
 fn run_dist() -> Result<()> {
+    let sh = Shell::new()?;
+
     let dist = project_root().join("dist");
-    rm_rf(&dist)?;
-    mkdir_p(&dist)?;
+    sh.remove_path(&dist)?;
+    sh.create_dir(&dist)?;
 
     let target = get_target();
 
-    cmd!("cargo build --manifest-path ./tsdbperf/Cargo.toml --bin tsdbperf --target {target} --release").run()?;
+    cmd!(sh, "cargo build --manifest-path ./tsdbperf/Cargo.toml --bin tsdbperf --target {target} --release").run()?;
 
     let suffix = exe_suffix(&target);
     let src = Path::new("target")
@@ -59,7 +61,8 @@ fn run_dist() -> Result<()> {
 }
 
 fn run_install() -> Result<()> {
-    cmd!("cargo install --path tsdbperf --locked --force").run()?;
+    let sh = Shell::new()?;
+    cmd!(sh, "cargo install --path tsdbperf --locked --force").run()?;
     Ok(())
 }
 
